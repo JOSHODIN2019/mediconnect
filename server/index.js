@@ -30,7 +30,7 @@ const app    = express()
 const server = createServer(app)
 const PORT   = process.env.PORT || 5000
 
-const ALLOWED_ORIGINS = (process.env.CLIENT_URL || 'http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://localhost:5175').split(',')
+const ALLOWED_ORIGINS = (process.env.CLIENT_URL || 'https://client-gilt-beta-13.vercel.app,http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174,http://localhost:5175').split(',')
 
 // ── Socket.IO ──────────────────────────────────────────────────────────────
 const io = new Server(server, {
