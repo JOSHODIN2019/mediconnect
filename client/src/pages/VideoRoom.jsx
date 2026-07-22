@@ -59,25 +59,40 @@ export default function VideoRoom() {
         const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
         clientRef.current = client
 
-        // Remote video published
-        client.on('user-published', async (user, mediaType) => {
-          await client.subscribe(user, mediaType)
-          if (mediaType === 'video') {
-            if (remoteElRef.current) user.videoTrack?.play(remoteElRef.current)
-            if (mountedRef.current) {
-              setHasRemote(true)
-              setPhase('incall')
-              timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
+        // ── Subscribe helper (called both from event and from post-join scan) ──
+        const subscribeRemote = async (remoteUser, mediaType) => {
+          try {
+            await client.subscribe(remoteUser, mediaType)
+            if (mediaType === 'video') {
+              // Small delay so Agora's internal video element is fully ready
+              setTimeout(() => {
+                if (remoteElRef.current) remoteUser.videoTrack?.play(remoteElRef.current)
+              }, 100)
+              if (mountedRef.current) {
+                setHasRemote(true)
+                setPhase('incall')
+                // Idempotent timer — don't create duplicates
+                if (!timerRef.current) {
+                  timerRef.current = setInterval(() => setElapsed(t => t + 1), 1000)
+                }
+              }
             }
+            if (mediaType === 'audio') {
+              remoteUser.audioTrack?.play()
+            }
+          } catch (subErr) {
+            console.warn('[VideoRoom] subscribe error:', subErr)
           }
-          if (mediaType === 'audio') user.audioTrack?.play()
-        })
+        }
+
+        client.on('user-published',   (user, mediaType) => subscribeRemote(user, mediaType))
 
         client.on('user-unpublished', (_, mediaType) => {
           if (mediaType === 'video' && mountedRef.current) {
             setHasRemote(false)
             setPhase('waiting')
             clearInterval(timerRef.current)
+            timerRef.current = null
           }
         })
 
@@ -86,6 +101,7 @@ export default function VideoRoom() {
             setHasRemote(false)
             setPhase('waiting')
             clearInterval(timerRef.current)
+            timerRef.current = null
             setElapsed(0)
           }
         })
@@ -93,6 +109,14 @@ export default function VideoRoom() {
         // Join channel
         await client.join(appId, channelName, token, uid)
         if (!mountedRef.current) return
+
+        // ── Belt-and-suspenders: subscribe to users already in channel ─────
+        // user-published fires for late-joiners, but if the remote user published
+        // WHILE our join() was resolving, the event might have been missed.
+        for (const remoteUser of client.remoteUsers) {
+          if (remoteUser.hasVideo) subscribeRemote(remoteUser, 'video')
+          if (remoteUser.hasAudio) subscribeRemote(remoteUser, 'audio')
+        }
 
         // Create local tracks
         const [audio, video] = await AgoraRTC.createMicrophoneAndCameraTracks(
@@ -106,7 +130,7 @@ export default function VideoRoom() {
 
         if (localElRef.current) video.play(localElRef.current)
         await client.publish([audio, video])
-        if (mountedRef.current) setPhase('waiting')
+        if (mountedRef.current) setPhase(prev => prev === 'incall' ? 'incall' : 'waiting')
       } catch (err) {
         if (!mountedRef.current) return
         console.error('[VideoRoom] init error:', err)
@@ -140,6 +164,7 @@ export default function VideoRoom() {
     return () => {
       mountedRef.current = false
       clearInterval(timerRef.current)
+      timerRef.current = null
       videoRef.current?.stop()
       videoRef.current?.close()
       audioRef.current?.stop()
