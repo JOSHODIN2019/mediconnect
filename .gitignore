@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment variables — NEVER commit these
+.env
+client/.env
+server/.env
+.env.local
+.env.production
+.env.production.local
+
+# Build output
+client/dist/
+
+# Project planning files
+PROJECT_MEMORY*.md
+images.jpeg
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# Uploaded files & local DB data — never commit these
+server/uploads/
+server/.mongodata/
