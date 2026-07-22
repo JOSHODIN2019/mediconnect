@@ -75,24 +75,26 @@ export function AuthProvider({ children }) {
     return () => setUnauthorizedHandler(null)
   }, [clearSession])
 
-  // On mount: verify the stored token is still valid
+  // On mount: verify the stored token is still valid.
+  // We race getMe() against an 8-second timeout so Render cold starts
+  // (which can take 30-60 s) don't make the spinner block the UI indefinitely
+  // or reset the session. On timeout we keep the localStorage session as-is.
   useEffect(() => {
     if (!token) {
       setIsAuthReady(true)
       return
     }
-    authService.getMe()
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject({ _timeout: true }), 8000)
+    )
+    Promise.race([authService.getMe(), timeout])
       .then(data => {
         setUser(data.user)
         localStorage.setItem('mediconnect_user', JSON.stringify(data.user))
       })
       .catch((err) => {
-        // Only clear session on an explicit 401 (token invalid/expired).
-        // Network errors (server down, timeout) keep the session — the user
-        // is still authenticated; they just can't reach the server right now.
-        if (err.response?.status === 401) {
-          clearSession()
-        }
+        if (err._timeout) return // server slow / cold start — keep localStorage session
+        if (err.response?.status === 401) clearSession()
       })
       .finally(() => setIsAuthReady(true))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

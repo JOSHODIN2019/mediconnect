@@ -110,7 +110,21 @@ export default function VideoRoom() {
       } catch (err) {
         if (!mountedRef.current) return
         console.error('[VideoRoom] init error:', err)
-        if (err?.response?.data?.message) {
+        const isPermissionDenied =
+          err?.code === 'PERMISSION_DENIED' ||
+          err?.name  === 'NotAllowedError'  ||
+          err?.message?.toLowerCase().includes('notallowed') ||
+          err?.message?.toLowerCase().includes('permission denied')
+        if (isPermissionDenied) {
+          setErrorMsg(
+            'Camera or microphone access was blocked.\n\n' +
+            'To fix this:\n' +
+            '• On Chrome/Edge: click the camera icon in the address bar and choose "Allow"\n' +
+            '• On Safari (iPhone/Mac): go to Settings → Safari → Camera & Microphone → Allow\n' +
+            '• On Firefox: click the blocked icon in the address bar → Allow camera and microphone\n\n' +
+            'After granting permission, reload this page to try again.'
+          )
+        } else if (err?.response?.data?.message) {
           setErrorMsg(err.response.data.message)
         } else if (err?.message) {
           setErrorMsg(err.message)
@@ -165,22 +179,33 @@ export default function VideoRoom() {
 
   // ── Error screen ──────────────────────────────────────────────────────────
   if (phase === 'error') {
+    const isPermission = errorMsg.includes('Camera or microphone access was blocked')
     return (
       <div className="fixed inset-0 bg-neutral-950 flex items-center justify-center z-50 p-6">
-        <div className="text-center space-y-5 max-w-md">
+        <div className="text-center space-y-5 max-w-sm w-full">
           <div className="w-20 h-20 rounded-full bg-red-900/40 ring-1 ring-red-800 flex items-center justify-center mx-auto">
             <AlertIcon />
           </div>
           <div>
-            <p className="text-white text-xl font-semibold mb-2">Cannot Connect</p>
-            <p className="text-neutral-400 text-sm leading-relaxed">{errorMsg}</p>
+            <p className="text-white text-xl font-semibold mb-3">Cannot Connect</p>
+            <p className="text-neutral-400 text-sm leading-relaxed whitespace-pre-line text-left">{errorMsg}</p>
           </div>
-          <button
-            onClick={() => navigate(-1)}
-            className="px-7 py-2.5 bg-white text-neutral-900 rounded-xl font-semibold text-sm hover:bg-neutral-100 transition-colors"
-          >
-            Go Back
-          </button>
+          <div className="flex gap-3 justify-center">
+            {isPermission && (
+              <button
+                onClick={() => window.location.reload()}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
+              >
+                Retry
+              </button>
+            )}
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-2.5 bg-white text-neutral-900 rounded-xl font-semibold text-sm hover:bg-neutral-100 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
       </div>
     )

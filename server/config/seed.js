@@ -2,6 +2,7 @@ import User            from '../models/User.js'
 import AuditLog         from '../models/AuditLog.js'
 import MedicalRecord    from '../models/MedicalRecord.js'
 import AccessGrant      from '../models/AccessGrant.js'
+import Appointment      from '../models/Appointment.js'
 import { createDemoFiles } from './createDemoFiles.js'
 
 const DEMO_DOCTORS = [
@@ -156,6 +157,25 @@ export const seedAdmin = async () => {
             isVerified: false,
           },
         ])
+      }
+    }
+
+    /* Demo confirmed video appointment: Tunde → Dr. Adaeze */
+    if (tunde && adaeze) {
+      const aptExists = await Appointment.findOne({
+        patient: tunde._id, doctor: adaeze._id, consultationType: 'video', status: 'confirmed',
+      })
+      if (!aptExists) {
+        await Appointment.create({
+          patient: tunde._id,
+          doctor:  adaeze._id,
+          date:    new Date('2026-08-15'),
+          timeSlot: '10:00',
+          consultationType: 'video',
+          status: 'confirmed',
+          reason: 'Routine cardiology follow-up via video',
+        })
+        console.log('✅ Demo video appointment seeded (Tunde ↔ Dr. Adaeze)')
       }
     }
 

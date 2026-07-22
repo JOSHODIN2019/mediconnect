@@ -39,8 +39,17 @@ export default function DoctorChat() {
 
   const loadConversations = useCallback(async () => {
     try {
-      const r = await api.get('/messages/conversations')
-      setConversations(r.data.conversations || [])
+      const [convR, patR] = await Promise.all([
+        api.get('/messages/conversations'),
+        api.get('/doctor/patients'),
+      ])
+      const convs    = convR.data.conversations || []
+      const patients = patR.data.patients || []
+      const existing = new Set(convs.map(c => c.partner._id.toString()))
+      const contacts = patients
+        .filter(p => !existing.has(p._id.toString()))
+        .map(p => ({ partner: p, lastMessage: null, unread: 0, room: null }))
+      setConversations([...convs, ...contacts])
     } catch { /* silent */ }
     finally { setLoadingConvs(false) }
   }, [])
@@ -183,7 +192,7 @@ export default function DoctorChat() {
                   </p>
                   <p className="text-xs text-neutral-400 truncate">{conv.lastMessage?.content || ''}</p>
                 </div>
-                <p className="text-[10px] text-neutral-400 flex-shrink-0">{fmtTime(conv.lastMessage?.createdAt)}</p>
+                <p className="text-[10px] text-neutral-400 flex-shrink-0">{conv.lastMessage?.createdAt ? fmtTime(conv.lastMessage.createdAt) : ''}</p>
               </button>
             ))}
           </div>
